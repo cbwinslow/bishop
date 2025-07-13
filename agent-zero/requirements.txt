@@ -1,0 +1,8 @@
+textual>=0.57.1
+pygithub
+gitpython
+langchain
+e2b
+tinydb
+typer
+tqdm
