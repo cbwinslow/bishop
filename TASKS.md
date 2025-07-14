@@ -1,0 +1,4 @@
+- Change the database from SQLite to PostgreSQL.
+- Add workflows and scripts to demonstrate the usage of the programmed features.
+- Create a workflow to create teams of AI agents and think of some use cases.
+- Create a TUI interface with the features we have so far.

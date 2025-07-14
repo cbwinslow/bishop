@@ -1,39 +1,59 @@
-"""Textual TUI frontend for agent-zero."""
-
 import asyncio
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static, TextLog
-from textual.containers import Horizontal
-from textual.reactive import reactive
+from textual.widgets import Header, Footer, Static, Input, TextLog, Button, DirectoryTree
+from textual.containers import Vertical, Horizontal
+from agent_zero.core.agents.orchestrator import Orchestrator
+from agent_zero.core.agents.team_builder import create_data_science_team, create_devops_team
+import importlib
 
-class RepoList(Static):
-    repos = reactive([])
+class WorkflowSelector(Vertical):
+    def __init__(self, orchestrator: Orchestrator, log: TextLog, **kwargs):
+        super().__init__(**kwargs)
+        self.orchestrator = orchestrator
+        self.log = log
 
     def compose(self) -> ComposeResult:
-        yield Static("[b]Repo List[/b]\n(press g to load)", id="repo-list")
+        yield Static("[b]Workflows[/b]")
+        yield Button("Data Analysis", id="data_analysis_wf")
+        yield Button("Code Generation", id="code_gen_wf")
+        yield Button("Team Creation", id="team_creation_wf")
 
-class ChatPane(TextLog):
-    pass
+    async def on_button_pressed(self, event: Button.Pressed):
+        workflow_module_name = f"workflows.{event.button.id.replace('_wf', '')}_workflow"
+        self.log.write(f"Running {workflow_module_name}...")
+        try:
+            workflow_module = importlib.import_module(workflow_module_name)
+            workflow_function = getattr(workflow_module, f"run_{event.button.id.replace('_wf', '')}_workflow")
+            # This is a simplified way to run the workflow.
+            # In a real application, you'd likely run this in a separate process
+            # and stream the output to the TUI.
+            asyncio.create_task(self.run_workflow(workflow_function))
+        except (ModuleNotFoundError, AttributeError) as e:
+            self.log.write(f"[red]Error running workflow: {e}[/red]")
 
-class AgentZeroApp(App):
-    BINDINGS = [("q", "quit", "Quit"), ("g", "load_repos", "Load Repos"), ("ctrl+a", "toggle_chat", "Chat")]
+    async def run_workflow(self, workflow_function):
+        # In a real app, you would capture stdout and display it in the log
+        workflow_function()
+        self.log.write(f"[green]Workflow finished.[/green]")
+
+
+class AgentZeroTUI(App):
+    BINDINGS = [("q", "quit", "Quit")]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orchestrator = Orchestrator()
 
     def compose(self) -> ComposeResult:
         yield Header()
+        log = TextLog(highlight=True, markup=True)
         with Horizontal():
-            self.repo_widget = RepoList()
-            self.chat_widget = ChatPane(highlight=False)
-            yield self.repo_widget
-            yield self.chat_widget
+            yield WorkflowSelector(self.orchestrator, log)
+            yield Vertical(
+                Static("[b]Logs[/b]"),
+                log
+            )
         yield Footer()
 
-    async def action_load_repos(self):
-        self.repo_widget.update("[green]Loading repos...[/green]")
-        await asyncio.sleep(1)
-        self.repo_widget.update("- sample/repo1\n- sample/repo2")
-
-    def action_toggle_chat(self):
-        self.chat_widget.visible = not self.chat_widget.visible
-
 def run_app():
-    AgentZeroApp().run()
+    AgentZeroTUI().run()
